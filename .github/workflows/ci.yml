@@ -1,0 +1,13 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install numpy pandas scikit-learn pytest
+      - run: python -c "from data.synthetic_accounts import generate_accounts; df=generate_accounts(200); assert len(df)==200; print(f'accounts OK, upsell rate={df.upsold.mean():.1%}')"
+      - run: python -c "from features.usage_signals import add_usage_features, get_feature_cols; import pandas as pd, numpy as np; from data.synthetic_accounts import generate_accounts; df=add_usage_features(generate_accounts(100)); assert 'adoption_momentum' in df.columns; print('features OK')"
