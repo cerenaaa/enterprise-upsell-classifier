@@ -9,5 +9,39 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install numpy pandas scikit-learn pytest
-      - run: python -c "from data.synthetic_accounts import generate_accounts; df=generate_accounts(200); assert len(df)==200; print('OK')"
-      - run: python -c "from evaluation.drift_monitor import psi; import numpy as np; s=psi(np.random.rand(100),np.random.rand(100)); print(f'PSI OK: {s:.3f}')"
+      - name: Test account data generator
+        run: |
+          python - <<'PYEOF'
+          from data.synthetic_accounts import generate_accounts
+          df = generate_accounts(200)
+          assert len(df) == 200
+          assert 'upsold' in df.columns
+          rate = df['upsold'].mean()
+          assert 0.05 < rate < 0.60
+          print('accounts OK, upsell rate:', round(rate, 3))
+          PYEOF
+      - name: Test PSI drift monitor
+        run: |
+          python - <<'PYEOF'
+          import numpy as np
+          from evaluation.drift_monitor import psi, feature_psi_report
+          rng = np.random.default_rng(42)
+          ref = rng.standard_normal(500)
+          same = rng.standard_normal(500)
+          shifted = rng.standard_normal(500) + 3.0
+          psi_same = psi(ref, same)
+          psi_shifted = psi(ref, shifted)
+          assert psi_same < psi_shifted
+          print('PSI OK - same:', round(psi_same, 3), 'shifted:', round(psi_shifted, 3))
+          PYEOF
+      - name: Test usage features
+        run: |
+          python - <<'PYEOF'
+          from data.synthetic_accounts import generate_accounts
+          from features.usage_signals import add_usage_features
+          df = generate_accounts(100)
+          df = add_usage_features(df)
+          assert 'adoption_momentum' in df.columns
+          assert 'security_urgency' in df.columns
+          print('usage features OK')
+          PYEOF
